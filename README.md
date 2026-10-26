@@ -1,2 +1,861 @@
 # HKA-EFB-Troubleshooting-Guide
 HKA EFB Troubleshooting Guide
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EFB Troubleshooting - Hong Kong Airlines</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0066cc',
+                            600: '#0052a3',
+                            700: '#003d7a',
+                            800: '#002952',
+                            900: '#001429',
+                        },
+                        hka: {
+                            red: '#d9232e',
+                            darkRed: '#a8161f'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Aviation & System Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar styling & iOS smooth momentum scrolling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+        .touch-scroll {
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+    <script>
+        // Explicitly define handlers on window to guarantee immediate global availability
+        window.openModal = function(title, templateId) {
+            const modal = document.getElementById('troubleshootModal');
+            const modalContainer = document.getElementById('modalContainer');
+            const modalTitle = document.getElementById('modalTitle');
+            
+            if (modalTitle) modalTitle.textContent = title;
+
+            const templates = document.querySelectorAll('.modal-template');
+            templates.forEach(t => t.classList.add('hidden'));
+
+            const selectedTemplate = document.getElementById(templateId);
+            if (selectedTemplate) {
+                selectedTemplate.classList.remove('hidden');
+            }
+
+            if (modal && modalContainer) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modalContainer.classList.remove('scale-95');
+                modalContainer.classList.add('scale-100');
+            }
+        };
+
+        window.closeModal = function() {
+            const modal = document.getElementById('troubleshootModal');
+            const modalContainer = document.getElementById('modalContainer');
+            if (modal && modalContainer) {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modalContainer.classList.remove('scale-100');
+                modalContainer.classList.add('scale-95');
+            }
+        };
+
+        window.filterOptions = function() {
+            const input = document.getElementById('searchInput');
+            if (!input) return;
+            const filter = input.value.toLowerCase().trim();
+            const cards = document.getElementsByClassName('option-card');
+            const clearBtn = document.getElementById('clearSearch');
+            const noResults = document.getElementById('noResults');
+            let visibleCount = 0;
+
+            if (clearBtn) {
+                if (filter.length > 0) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            }
+
+            for (let i = 0; i < cards.length; i++) {
+                const text = cards[i].innerText.toLowerCase();
+                if (text.includes(filter)) {
+                    cards[i].classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    cards[i].classList.add('hidden');
+                }
+            }
+
+            if (noResults) {
+                if (visibleCount === 0) {
+                    noResults.classList.remove('hidden');
+                } else {
+                    noResults.classList.add('hidden');
+                }
+            }
+        };
+
+        window.clearFilter = function() {
+            const input = document.getElementById('searchInput');
+            if (input) {
+                input.value = '';
+                window.filterOptions();
+                input.focus();
+            }
+        };
+
+        window.copyAQDUrl = function() {
+            const urlText = "https://AQD.hkairlines.com/aqdconnect230";
+            const copyBtnText = document.getElementById('copyBtnText');
+
+            const tempInput = document.createElement("input");
+            tempInput.value = urlText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                document.execCommand("copy");
+                if (copyBtnText) {
+                    copyBtnText.textContent = "Copied!";
+                    setTimeout(() => {
+                        copyBtnText.textContent = "Copy";
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error("Copy failed", err);
+            }
+            
+            document.body.removeChild(tempInput);
+        };
+
+        window.copyFlysmartUrl = function() {
+            const urlText = "https://efb.hongkongair.net";
+            const copyBtnText = document.getElementById('copyFlysmartBtnText');
+
+            const tempInput = document.createElement("input");
+            tempInput.value = urlText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                document.execCommand("copy");
+                if (copyBtnText) {
+                    copyBtnText.textContent = "Copied!";
+                    setTimeout(() => {
+                        copyBtnText.textContent = "Copy";
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error("Copy failed", err);
+            }
+            
+            document.body.removeChild(tempInput);
+        };
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.closeModal();
+            }
+        });
+    </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-800/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-30 px-4 py-3.5 sm:px-6">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-brand-600/20 text-brand-400 rounded-lg border border-brand-500/30 flex items-center justify-center">
+                    <i class="fa-solid fa-plane-flight text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        EFB Troubleshooting
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Flight Ops</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Hong Kong Airlines • Flight Crew Technical Assistance</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <div class="text-xs text-slate-300 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700/80 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="hidden sm:inline text-slate-400">System:</span> Online
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6 md:p-8">
+        <div class="w-full max-w-2xl bg-slate-800/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden my-auto">
+            
+            <!-- Header Section -->
+            <div class="p-6 sm:p-8 border-b border-slate-700/60 bg-gradient-to-b from-slate-800 to-slate-800/60">
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2">
+                    EFB Troubleshooting
+                </h2>
+                <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+                    What issues do you have? Choose from the options below.
+                </p>
+
+                <!-- Search / Filter Input Field -->
+                <div class="mt-6 relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </div>
+                    <input 
+                        type="text" 
+                        id="searchInput"
+                        onkeyup="filterOptions()"
+                        placeholder="Search issue or application (e.g., AQD, Weather, Apple ID)..." 
+                        class="w-full pl-10 pr-10 py-3 bg-slate-900/90 border border-slate-600/80 rounded-xl text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all shadow-inner"
+                    >
+                    <button 
+                        id="clearSearch" 
+                        onclick="clearFilter()" 
+                        class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                    >
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Options / Modules List -->
+            <div class="p-4 sm:p-6 max-h-[520px] overflow-y-auto touch-scroll space-y-3" id="optionsContainer">
+                
+                <!-- Option 1: Managed Apple Account -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Managed Apple Account', 'apple-id-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-brands fa-apple text-2xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Managed Apple Account
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Account sign-in, verification codes, and iCloud synchronization</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 2: Flysmart Server Address -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Flysmart Server Address', 'flysmart-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-server text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Flysmart Server Address
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Server configuration and connection setup</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 3: Mission+ -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Mission+', 'mission-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-plane-departure text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Mission+
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Flight briefing sync, route download, and flight folder recovery</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option: Web Manuals Reader -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Web Manuals Reader', 'web-manuals-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-book-open-reader text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Web Manuals Reader
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Library updates, document synchronization, and login configuration</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 4: MyFlightWx (Sun-Behind-Cloud Weather SVG Icon) -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('MyFlightWx', 'myflightwx-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all p-2.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+                                    <!-- Sun Rays -->
+                                    <path d="M12 2v2"></path>
+                                    <path d="M4.93 4.93l1.41 1.41"></path>
+                                    <path d="M20 10h2"></path>
+                                    <path d="M19.07 4.93l-1.41 1.41"></path>
+                                    <!-- Sun Center Core -->
+                                    <circle cx="12" cy="10" r="4"></circle>
+                                    <!-- Foreground Cloud -->
+                                    <path d="M17.5 19B4.5 4.5 0 0 0 18 10h-1.26A8 8 0 1 0 3 16.3"></path>
+                                    <path d="M8 19h9.5a3.5 3.5 0 0 0 0-7h-1.26a6 6 0 0 0-11.24 2.3"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    MyFlightWx
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Weather radar layers, METAR/TAF updates, and satellite feeds</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 5: Navblue Charts -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Navblue Charts', 'navblue-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-map-location-dot text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Navblue Charts
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Terminal charts missing, cycle revision updates, manual clips</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 6: Pelesys / Training -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('Pelesys / Training', 'pelesys-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-graduation-cap text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    Pelesys / Training
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">CrewPad Pro activation code and training contacts</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 7: AQD Application -->
+                <div class="option-card group relative bg-slate-900/60 hover:bg-brand-900/40 border border-slate-700/70 hover:border-brand-500/60 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
+                     onclick="openModal('AQD Application', 'aqd-content')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 group-hover:border-brand-500/50 group-hover:text-brand-400 group-hover:bg-slate-800/80 transition-all">
+                                <i class="fa-solid fa-shield-halved text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-white group-hover:text-brand-300 transition-colors">
+                                    AQD Application
+                                </h3>
+                                <p class="text-xs text-slate-400 line-clamp-1">Connect Service URL setup and SMS Mobile support contacts</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center pl-2 text-slate-400 group-hover:text-brand-400 group-hover:translate-x-1 transition-all">
+                            <i class="fa-solid fa-chevron-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty Search State -->
+                <div id="noResults" class="hidden text-center py-10">
+                    <div class="text-slate-500 mb-2">
+                        <i class="fa-solid fa-magnifying-glass-slash text-3xl"></i>
+                    </div>
+                    <p class="text-slate-300 font-medium text-sm">No troubleshooting modules found</p>
+                    <p class="text-xs text-slate-500 mt-1">Try typing another keyword or contact EFB support.</p>
+                </div>
+
+            </div>
+
+            <!-- Card Footer -->
+            <div class="p-4 sm:p-6 bg-slate-900/90 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-headset text-brand-400"></i>
+                    <span>Flight Operations EFB Hotdesk</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="mailto:efb.admin@hkairlines.com" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors font-medium flex items-center gap-1.5">
+                        <i class="fa-solid fa-envelope"></i> EFB Support Email
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 text-center text-xs text-slate-500 border-t border-slate-800/60 bg-slate-950/40">
+        <p>© Hong Kong Airlines Flight Operations • Electronic Flight Bag Support</p>
+    </footer>
+
+    <!-- Modal Dialog for Detailed Instructions -->
+    <div id="troubleshootModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="modalContainer">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-700 flex items-center justify-between bg-slate-800">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-500"></span>
+                    <h3 class="text-lg font-bold text-white" id="modalTitle">Troubleshooting Guide</h3>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div class="p-6 max-h-[65vh] overflow-y-auto touch-scroll space-y-4 text-slate-300 text-sm" id="modalBody">
+                
+                <!-- AQD Application Modal Content -->
+                <div id="aqd-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">1. Connect Service URL</span>
+                            <div class="flex items-center justify-between bg-slate-950 border border-slate-700 rounded-lg p-2.5">
+                                <code id="aqdUrlText" class="text-xs sm:text-sm text-emerald-400 font-mono break-all selection:bg-slate-700">https://AQD.hkairlines.com/aqdconnect230</code>
+                                <button onclick="copyAQDUrl()" class="ml-2 px-2.5 py-1 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded transition-colors flex items-center gap-1 shrink-0">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span id="copyBtnText">Copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">2. Configuration Path</span>
+                            <p class="text-slate-200 bg-slate-800/80 border border-slate-700/60 p-3 rounded-lg text-xs sm:text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-brand-400"></i>
+                                <span>To enter the above URL, tap on <strong>Settings &gt; Configuration &gt; Connect Service URL</strong></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/80 border border-slate-700 rounded-xl space-y-1">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">3. SMS Mobile Support</span>
+                        <p class="text-slate-300 text-xs sm:text-sm">
+                            For reset password and any issues of SMS Mobile, please contact 
+                            <a href="mailto:safety.management@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1 mt-1">
+                                <i class="fa-solid fa-envelope text-xs"></i> safety.management@hkairlines.com
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Managed Apple ID Content -->
+                <div id="apple-id-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <h4 class="font-semibold text-white text-sm flex items-center gap-2">
+                            <i class="fa-brands fa-apple text-brand-400"></i> Managed Apple Account
+                        </h4>
+                        
+                        <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                            The Managed Apple Account is created by and linked with your company email account.
+                        </p>
+
+                        <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-lg space-y-2 text-xs sm:text-sm">
+                            <p class="text-slate-300 leading-relaxed">
+                                A pop-up message may appear on your EFB asking for signing in and verification after you updated your company email password.
+                            </p>
+                            <p class="text-slate-300 leading-relaxed">
+                                Kindly follow the pop-up message to go through the verification process with 2FA authenticator again after password update.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Verification Fail Solution -->
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-2">
+                        <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Verification Fail Solution
+                        </span>
+                        <ol class="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-300 bg-slate-950/60 border border-slate-800 p-3 rounded-lg">
+                            <li>Open a web browser (Safari / Edge) on your EFB, visit <code class="text-emerald-400 font-mono">account.apple.com</code> under PRIVATE view.</li>
+                            <li>Sign in with company email and password.</li>
+                        </ol>
+                        <p class="text-xs text-slate-400 italic mt-1">The pop-up message should have been gone.</p>
+                    </div>
+
+                    <!-- Assistance Section -->
+                    <div class="p-4 bg-slate-900/80 border border-slate-700 rounded-xl space-y-1">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">For Assistance</span>
+                        <p class="text-slate-300 text-xs sm:text-sm">
+                            Please contact 
+                            <a href="mailto:efb.admin@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1">
+                                <i class="fa-solid fa-envelope text-xs"></i> efb.admin@hkairlines.com
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Flysmart Server Address Content -->
+                <div id="flysmart-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">EFB Server Address</span>
+                            <div class="flex items-center justify-between bg-slate-950 border border-slate-700 rounded-lg p-2.5">
+                                <code id="flysmartUrlText" class="text-xs sm:text-sm text-emerald-400 font-mono break-all selection:bg-slate-700">https://efb.hongkongair.net</code>
+                                <button onclick="copyFlysmartUrl()" class="ml-2 px-2.5 py-1 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium rounded transition-colors flex items-center gap-1 shrink-0">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span id="copyFlysmartBtnText">Copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Configuration Note</span>
+                            <p class="text-slate-200 bg-slate-800/80 border border-slate-700/60 p-3 rounded-lg text-xs sm:text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-server text-brand-400"></i>
+                                <span>Configure or verify this EFB server address in your Flysmart application settings.</span>
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Reference Document</span>
+                            <p class="text-slate-300 text-xs sm:text-sm bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-lg flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-brand-400"></i>
+                                <span>06-EFB &gt; EC-23-002 Acceptable EFB Software Versions</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mission+ Content -->
+                <div id="mission-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-2">
+                        <h4 class="font-semibold text-white text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-plane-departure text-brand-400"></i> Mission+ Sync Recovery
+                        </h4>
+                        <ul class="list-disc list-inside space-y-2 text-xs sm:text-sm text-slate-300">
+                            <li>Force restart Mission+ app from App Switcher.</li>
+                            <li>Verify connection to airport Wi-Fi or cellular data.</li>
+                            <li>Tap <strong>Sync Operational Data</strong> on top panel.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Web Manuals Reader Content -->
+                <div id="web-manuals-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">1. Update Issue Resolution</span>
+                            <p class="text-slate-300 text-xs sm:text-sm leading-relaxed bg-slate-950/60 border border-slate-800 p-3 rounded-lg">
+                                If you encounter update issue with Web Manuals Reader, please close all the running apps on your EFB, then relaunch the Web Manuals Reader app.
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-amber-400"></span> Workaround for Document Checkout Error
+                            </span>
+                            <ol class="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-300 bg-slate-950/60 border border-slate-800 p-3 rounded-lg">
+                                <li>Update the Web Manuals app to the latest version via <strong>Business app</strong></li>
+                                <li>Fully close (force-quit) the app to clear the stuck queue.</li>
+                                <li>Reopen the app while connected to the internet and allow it to sync.</li>
+                                <li>Download and open the latest revision of the document, then complete the checkout.</li>
+                            </ol>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">3. Re-login Credentials & Setup</span>
+                            <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-lg space-y-2 text-xs sm:text-sm">
+                                <p class="text-slate-300">If you need to re-login, please use the following:</p>
+                                
+                                <div class="bg-slate-900 border border-slate-700/80 rounded-lg p-3 space-y-1.5 font-mono text-xs">
+                                    <div class="flex justify-between items-center border-b border-slate-800 pb-1 gap-2">
+                                        <span class="text-slate-400 font-sans shrink-0">Domain:</span>
+                                        <span class="text-emerald-400 select-all break-all text-right">hongkongairlines.webmanuals.aero</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 font-sans">Username:</span>
+                                        <span class="text-emerald-400">(your company email)</span>
+                                    </div>
+                                </div>
+
+                                <ul class="list-disc list-inside space-y-1.5 text-xs text-slate-300 pt-1">
+                                    <li>Use your company email password to set up the Authenticator for Single Sign-on.</li>
+                                    <li>Press <strong class="text-white">“Skip”</strong> if prompted for offline PIN setup.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">4. Synchronization & Manual Downloads</span>
+                            <ul class="list-disc list-inside space-y-1.5 text-xs sm:text-sm text-slate-300">
+                                <li>Ensure device has an active Wi-Fi or cellular internet connection.</li>
+                                <li>Open Web Manuals Reader and tap the <strong>Sync</strong> button in the top menu to refresh document libraries.</li>
+                                <li>Verify that all required operational manuals are fully downloaded for offline reading.</li>
+                            </ul>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">5. Reference Document</span>
+                            <p class="text-slate-300 text-xs sm:text-sm bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-lg flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-brand-400"></i>
+                                <span>06-EFB &gt; EC-26-00X Web Manuals Reader User Guide</span>
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">6. For Assistance</span>
+                            <p class="text-slate-300 text-xs sm:text-sm">
+                                If document syncing fails, please contact 
+                                <a href="mailto:efb.admin@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-envelope text-xs"></i> efb.admin@hkairlines.com
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MyFlightWx Content -->
+                <div id="myflightwx-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">1. Connection Status Indicator</span>
+                            <p class="text-slate-200 text-xs sm:text-sm leading-relaxed mb-3">
+                                Before proceeding, please make sure that the Application version is the latest, Wi-Fi and server connection is successful and flight plans are available for download. All positive statuses are presented in green as shown in the Notification Box in the below diagram.
+                            </p>
+
+                            <!-- Visual Reference Box for Notification popup -->
+                            <div class="bg-[#0b101d] border border-slate-600/80 rounded-lg p-3 my-2 text-xs font-sans shadow-md">
+                                <div class="text-white font-semibold text-sm pb-2 mb-2 border-b border-slate-700/80">
+                                    Notification:
+                                </div>
+                                <div class="grid grid-cols-[32px_1fr] gap-y-2.5 items-center">
+                                    <div class="flex justify-center text-emerald-400 text-sm">
+                                        <i class="fa-regular fa-circle-check"></i>
+                                    </div>
+                                    <div class="text-emerald-400 font-medium">v2.0.35 (2.0)</div>
+
+                                    <div class="flex justify-center text-emerald-400 text-sm">
+                                        <i class="fa-solid fa-wifi"></i>
+                                    </div>
+                                    <div class="text-emerald-400 font-medium">Network Connected</div>
+
+                                    <div class="flex justify-center text-emerald-400 text-sm">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                                    </div>
+                                    <div class="text-emerald-400 font-medium">Server Reachable</div>
+
+                                    <div class="flex justify-center text-emerald-400 text-sm">
+                                        <i class="fa-solid fa-ticket"></i>
+                                    </div>
+                                    <div class="text-emerald-400 font-medium">54 Flight Plan[s] Available</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-amber-400"></span> If an Orange Dot is Displayed:
+                            </span>
+                            <p class="text-slate-300 text-xs sm:text-sm mb-2">Should you see an orange dot instead, you may try the following steps:</p>
+                            <ol class="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-300 bg-slate-950/60 border border-slate-800 p-3 rounded-lg">
+                                <li>Close and Relaunch the App</li>
+                                <li>Switch to a different Wi-Fi source</li>
+                            </ol>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">2. Reference Document</span>
+                            <p class="text-slate-300 text-xs sm:text-sm bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-lg flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-brand-400"></i>
+                                <span>Detailed instructions are available in <strong>06-EFB &gt; EC-23-001.1 MyFlightWx User Guide</strong></span>
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">3. For assistance</span>
+                            <p class="text-slate-300 text-xs sm:text-sm">
+                                Please contact 
+                                <a href="mailto:efb.admin@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-envelope text-xs"></i> efb.admin@hkairlines.com
+                                </a>
+                                if you have any other issues.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navblue Content -->
+                <div id="navblue-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">1. Update Troubleshooting Procedure</span>
+                            <p class="text-slate-300 text-xs sm:text-sm mb-2 leading-relaxed">
+                                If you encounter issues during update, please connect to stable Wi-Fi and activate troubleshooting mode:
+                            </p>
+                            <ol class="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-300 bg-slate-950/60 border border-slate-800 p-3 rounded-lg">
+                                <li>Go to <strong>"Administration"</strong> Tab</li>
+                                <li>Enable <strong>Trouble Shooting Mode</strong> and <strong>REMOVE ALL DATA</strong>. Full provisioning package will be available for download.</li>
+                            </ol>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-amber-400"></span> If Missing Information in Settings:
+                            </span>
+                            <p class="text-slate-300 text-xs sm:text-sm mb-2">
+                                If the above does not solve the issue, some information in settings might be missing. Please Enter Subscription Info, then Download Updates:
+                            </p>
+                            
+                            <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-lg space-y-2 text-xs sm:text-sm">
+                                <p class="text-slate-200 font-medium">i. Tap on <strong>MENU &gt; SETTINGS &gt; USER/SUBSCRIPTION INFO</strong></p>
+                                <p class="text-slate-200 font-medium">ii. Enter the below parameters:</p>
+                                
+                                <div class="bg-slate-900 border border-slate-700/80 rounded-lg p-3 space-y-1.5 font-mono text-xs">
+                                    <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                                        <span class="text-slate-400 font-sans">Username:</span>
+                                        <span class="text-emerald-400">(your company email)</span>
+                                    </div>
+                                    <div class="flex justify-between items-center border-b border-slate-800 pb-1 gap-2">
+                                        <span class="text-slate-400 font-sans shrink-0">Server Name:</span>
+                                        <span class="text-emerald-400 select-all break-all text-right">https://ncim-prod.ncim.navblue.cloud</span>
+                                    </div>
+                                    <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                                        <span class="text-slate-400 font-sans">Company:</span>
+                                        <span class="text-emerald-400">Hong Kong Airlines</span>
+                                    </div>
+                                    <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                                        <span class="text-slate-400 font-sans">Subscription:</span>
+                                        <span class="text-emerald-400">HKACOM</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 font-sans">Device Name:</span>
+                                        <span class="text-emerald-400">HKAEFB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p class="text-slate-300 text-xs sm:text-sm mt-2">
+                                After registering, tap on <strong>Available Updates</strong> and download the package.
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">2. Reference Document</span>
+                            <p class="text-slate-300 text-xs sm:text-sm bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-lg flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-brand-400"></i>
+                                <span>Detailed instructions of the above are also available in <strong>06-EFB &gt; EC-19-004 Navtech Charts+ App (Trial) Subscription</strong></span>
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">3. For Assistance</span>
+                            <p class="text-slate-300 text-xs sm:text-sm">
+                                Please contact 
+                                <a href="mailto:efb.admin@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-envelope text-xs"></i> efb.admin@hkairlines.com
+                                </a>
+                                for any other issues.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pelesys Content -->
+                <div id="pelesys-content" class="modal-template hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                        <div>
+                            <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider block mb-1">1. CrewPad Pro Activation Code</span>
+                            <div class="flex items-center justify-between bg-slate-950 border border-slate-700 rounded-lg p-2.5">
+                                <code class="text-xs sm:text-sm text-emerald-400 font-mono tracking-wider selection:bg-slate-700">20682807</code>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">2. For assistance</span>
+                            <p class="text-slate-300 text-xs sm:text-sm bg-slate-800/80 border border-slate-700/60 p-3 rounded-lg">
+                                For any issues of CrewPad Pro, please contact 
+                                <a href="mailto:hkafct@hkairlines.com" class="text-brand-400 hover:text-brand-300 underline font-medium break-all transition-colors inline-flex items-center gap-1 mt-1">
+                                    <i class="fa-solid fa-envelope text-xs"></i> hkafct@hkairlines.com
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-900 border-t border-slate-700 flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
+                    Close Guide
+                </button>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
